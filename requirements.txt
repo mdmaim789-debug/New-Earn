@@ -1,6 +1,2 @@
 python-telegram-bot==20.7
 python-dotenv==1.0.0
-psycopg2-binary==2.9.9       # PostgreSQL জন্য
-sqlite3                      # Built-in, no installation needed
-schedule==1.2.0              # Scheduling tasks
-requests==2.31.0             # HTTP requests
