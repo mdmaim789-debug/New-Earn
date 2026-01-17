@@ -1,0 +1,74 @@
+name: Telegram Bot Runner
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # প্রতি 5 মিনিটে চেক করবে bot running আছে কিনা
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Create .env file from Secrets
+      run: |
+        cat > .env << EOF
+        BOT_TOKEN=${{ secrets.BOT_TOKEN }}
+        ADMIN_IDS=${{ secrets.ADMIN_IDS }}
+        DB_PATH=/tmp/bot_database.db
+        DATABASE_URL=${{ secrets.DATABASE_URL }}
+        ENABLE_WEBHOOK=${{ secrets.ENABLE_WEBHOOK }}
+        WEBHOOK_URL=${{ secrets.WEBHOOK_URL }}
+        PORT=${{ secrets.PORT || 8000 }}
+        EOF
+    
+    - name: Run Telegram Bot
+      run: |
+        # Background-এ bot run করবে
+        python bot.py &
+        BOT_PID=$!
+        
+        # 30 seconds wait for bot to start
+        sleep 30
+        
+        # Check if bot is running
+        if ps -p $BOT_PID > /dev/null; then
+          echo "✅ Bot is running successfully"
+          # Keep running for 55 minutes (GitHub Actions limit)
+          sleep 3300
+        else
+          echo "❌ Bot failed to start"
+          exit 1
+        fi
+        
+        # Bot stop করবে
+        kill $BOT_PID
+      timeout-minutes: 60  # GitHub Actions limit
+    
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: bot-logs
+        path: |
+          bot.log
+          error.log
+        retention-days: 7
